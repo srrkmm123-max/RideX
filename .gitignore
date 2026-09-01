@@ -215,3 +215,6 @@ media/
 
 *~
 .#*
+
+kubectl
+minikube-linux-amd64
