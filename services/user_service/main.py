@@ -1,0 +1,45 @@
+from fastapi import FastAPI
+
+app = FastAPI(
+    title="RideX User Service",
+    description="User management service for RideX",
+    version="1.0.0",
+)
+
+
+@app.get("/")
+def root():
+    return {
+        "service": "user-service",
+        "status": "running",
+    }
+
+
+@app.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "service": "user-service",
+    }
+
+
+@app.get("/users")
+def get_users():
+    return {
+        "users": []
+    }
+
+
+@app.get("/users/{user_id}")
+def get_user(user_id: int):
+    return {
+        "user_id": user_id
+    }
+
+
+@app.post("/users")
+def create_user(user: dict):
+    return {
+        "message": "User created",
+        "user": user,
+    }

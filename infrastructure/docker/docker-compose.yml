@@ -1,0 +1,538 @@
+# ============================================================
+# RideX - Docker Compose
+# ============================================================
+
+services:
+
+  # ==========================================================
+  # PostgreSQL DATABASE
+  # ==========================================================
+
+  postgres:
+    image: postgres:16-alpine
+
+    container_name: ridex-postgres
+
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ridex
+      POSTGRES_USER: ridex
+      POSTGRES_PASSWORD: ridex_dev_password
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - ridex_postgres_data:/var/lib/postgresql/data
+
+      # Initialize database automatically
+      - ../../database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../../database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ridex -d ridex"
+        ]
+
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # ==========================================================
+  # API GATEWAY
+  # ==========================================================
+
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+
+    container_name: ridex-api-gateway
+
+    restart: unless-stopped
+
+    working_dir: /app/api-gateway
+
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ]
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      DATABASE_URL: postgresql://ridex:ridex_dev_password@postgres:5432/ridex
+
+      USER_SERVICE_URL: http://user-service:8001
+      DRIVER_SERVICE_URL: http://driver-service:8002
+      RIDE_SERVICE_URL: http://ride-service:8003
+      MATCHING_SERVICE_URL: http://matching-service:8004
+      PRICING_SERVICE_URL: http://pricing-service:8005
+      PAYMENT_SERVICE_URL: http://payment-service:8006
+      NOTIFICATION_SERVICE_URL: http://notification-service:8007
+      RATING_SAFETY_SERVICE_URL: http://rating-safety-service:8008
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      user-service:
+        condition: service_started
+
+      driver-service:
+        condition: service_started
+
+      ride-service:
+        condition: service_started
+
+      matching-service:
+        condition: service_started
+
+      pricing-service:
+        condition: service_started
+
+      payment-service:
+        condition: service_started
+
+      notification-service:
+        condition: service_started
+
+      rating-safety-service:
+        condition: service_started
+
+
+  # ==========================================================
+  # USER SERVICE
+  # ==========================================================
+
+  user-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+
+    container_name: ridex-user-service
+
+    restart: unless-stopped
+
+    working_dir: /app/services/user-service
+
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8001"
+      ]
+
+    ports:
+      - "8001:8001"
+
+    environment:
+      DATABASE_URL: postgresql://ridex:ridex_dev_password@postgres:5432/ridex
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  # ==========================================================
+  # DRIVER SERVICE
+  # ==========================================================
+
+  driver-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+
+    container_name: ridex-driver-service
+
+    restart: unless-stopped
+
+    working_dir: /app/services/driver-service
+
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8002"
+      ]
+
+    ports:
+      - "8002:8002"
+
+    environment:
+      DATABASE_URL: postgresql://ridex:ridex_dev_password@postgres:5432/ridex
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  # ==========================================================
+  # RIDE SERVICE
+  # ==========================================================
+
+  ride-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+
+    container_name: ridex-ride-service
+
+    restart: unless-stopped
+
+    working_dir: /app/services/ride-service
+
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8003"
+      ]
+
+    ports:
+      - "8003:8003"
+
+    environment:
+      DATABASE_URL: postgresql://ridex:ridex_dev_password@postgres:5432/ridex
+
+      MATCHING_SERVICE_URL: http://matching-service:8004
+      PRICING_SERVICE_URL: http://pricing-service:8005
+      PAYMENT_SERVICE_URL: http://payment-service:8006
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      matching-service:
+        condition: service_started
+
+      pricing-service:
+        condition: service_started
+
+
+  # ==========================================================
+  # MATCHING SERVICE
+  # ==========================================================
+
+  matching-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+
+    container_name: ridex-matching-service
+
+    restart: unless-stopped
+
+    working_dir: /app/services/matching-service
+
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8004"
+      ]
+
+    ports:
+      - "8004:8004"
+
+    environment:
+      DATABASE_URL: postgresql://ridex:ridex_dev_password@postgres:5432/ridex
+
+      DRIVER_SERVICE_URL: http://driver-service:8002
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      driver-service:
+        condition: service_started
+
+
+  # ==========================================================
+  # PRICING SERVICE
+  # ==========================================================
+
+  pricing-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+
+    container_name: ridex-pricing-service
+
+    restart: unless-stopped
+
+    working_dir: /app/services/pricing-service
+
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8005"
+      ]
+
+    ports:
+      - "8005:8005"
+
+    environment:
+      DATABASE_URL: postgresql://ridex:ridex_dev_password@postgres:5432/ridex
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  # ==========================================================
+  # PAYMENT SERVICE
+  # ==========================================================
+
+  payment-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+
+    container_name: ridex-payment-service
+
+    restart: unless-stopped
+
+    working_dir: /app/services/payment-service
+
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8006"
+      ]
+
+    ports:
+      - "8006:8006"
+
+    environment:
+      DATABASE_URL: postgresql://ridex:ridex_dev_password@postgres:5432/ridex
+
+      # Development placeholders
+      PAYMENT_PROVIDER: demo
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  # ==========================================================
+  # NOTIFICATION SERVICE
+  # ==========================================================
+
+  notification-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+
+    container_name: ridex-notification-service
+
+    restart: unless-stopped
+
+    working_dir: /app/services/notification-service
+
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8007"
+      ]
+
+    ports:
+      - "8007:8007"
+
+    environment:
+      DATABASE_URL: postgresql://ridex:ridex_dev_password@postgres:5432/ridex
+
+      NOTIFICATION_MODE: demo
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  # ==========================================================
+  # RATING & SAFETY SERVICE
+  # ==========================================================
+
+  rating-safety-service:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+
+    container_name: ridex-rating-safety-service
+
+    restart: unless-stopped
+
+    working_dir: /app/services/rating-safety-service
+
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8008"
+      ]
+
+    ports:
+      - "8008:8008"
+
+    environment:
+      DATABASE_URL: postgresql://ridex:ridex_dev_password@postgres:5432/ridex
+
+      NOTIFICATION_SERVICE_URL: http://notification-service:8007
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      notification-service:
+        condition: service_started
+
+
+  # ==========================================================
+  # PASSENGER APP
+  # ==========================================================
+
+  passenger-app:
+    image: node:22-alpine
+
+    container_name: ridex-passenger-app
+
+    working_dir: /app
+
+    volumes:
+      - ../../passenger-app:/app
+
+      - passenger_node_modules:/app/node_modules
+
+    command:
+      [
+        "sh",
+        "-c",
+        "npm install && npm start"
+      ]
+
+    ports:
+      - "3000:3000"
+
+    environment:
+      API_URL: http://localhost:8000
+
+    depends_on:
+      - api-gateway
+
+
+  # ==========================================================
+  # DRIVER APP
+  # ==========================================================
+
+  driver-app:
+    image: node:22-alpine
+
+    container_name: ridex-driver-app
+
+    working_dir: /app
+
+    volumes:
+      - ../../driver-app:/app
+
+      - driver_node_modules:/app/node_modules
+
+    command:
+      [
+        "sh",
+        "-c",
+        "npm install && npm start"
+      ]
+
+    ports:
+      - "3001:3000"
+
+    environment:
+      API_URL: http://localhost:8000
+
+    depends_on:
+      - api-gateway
+
+
+  # ==========================================================
+  # ADMIN DASHBOARD
+  # ==========================================================
+
+  admin-dashboard:
+    image: node:22-alpine
+
+    container_name: ridex-admin-dashboard
+
+    working_dir: /app
+
+    volumes:
+      - ../../admin-dashboard:/app
+
+      - admin_node_modules:/app/node_modules
+
+    command:
+      [
+        "sh",
+        "-c",
+        "npm install && npm start"
+      ]
+
+    ports:
+      - "3002:3000"
+
+    environment:
+      API_URL: http://localhost:8000
+
+    depends_on:
+      - api-gateway
+
+
+# ============================================================
+# VOLUMES
+# ============================================================
+
+volumes:
+
+  ridex_postgres_data:
+
+  passenger_node_modules:
+
+  driver_node_modules:
+
+  admin_node_modules:

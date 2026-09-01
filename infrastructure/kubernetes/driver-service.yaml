@@ -1,0 +1,147 @@
+# ============================================================
+# RideX - Driver Service
+# infrastructure/kubernetes/driver-service.yaml
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: driver-service
+  namespace: ridex
+
+  labels:
+    app: driver-service
+    app.kubernetes.io/name: driver-service
+    app.kubernetes.io/part-of: ridex
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: driver-service
+
+  template:
+    metadata:
+      labels:
+        app: driver-service
+        app.kubernetes.io/name: driver-service
+        app.kubernetes.io/part-of: ridex
+
+    spec:
+      containers:
+        - name: driver-service
+
+          image: ridex-driver-service:latest
+
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8002
+              protocol: TCP
+
+          env:
+            # ------------------------------------------------
+            # Database
+            # ------------------------------------------------
+
+            - name: DATABASE_URL
+              value: "postgresql://ridex:ridex_dev_password@postgres:5432/ridex"
+
+            # ------------------------------------------------
+            # Application
+            # ------------------------------------------------
+
+            - name: SERVICE_NAME
+              value: "driver-service"
+
+            - name: SERVICE_PORT
+              value: "8002"
+
+            - name: ENVIRONMENT
+              value: "development"
+
+            # ------------------------------------------------
+            # Other RideX Services
+            # ------------------------------------------------
+
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-service:8007"
+
+            - name: MATCHING_SERVICE_URL
+              value: "http://matching-service:8004"
+
+          # --------------------------------------------------
+          # Readiness Probe
+          # --------------------------------------------------
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # --------------------------------------------------
+          # Liveness Probe
+          # --------------------------------------------------
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # --------------------------------------------------
+          # Resource Management
+          # --------------------------------------------------
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+---
+# ============================================================
+# Driver Service - Kubernetes Service
+# ============================================================
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: driver-service
+  namespace: ridex
+
+  labels:
+    app: driver-service
+    app.kubernetes.io/name: driver-service
+    app.kubernetes.io/part-of: ridex
+
+spec:
+  # Internal service only
+  type: ClusterIP
+
+  selector:
+    app: driver-service
+
+  ports:
+    - name: http
+      protocol: TCP
+
+      port: 8002
+
+      targetPort: 8002

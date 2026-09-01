@@ -1,0 +1,162 @@
+# ============================================================
+# RideX - Ride Service
+# infrastructure/kubernetes/ride-service.yaml
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: ride-service
+  namespace: ridex
+
+  labels:
+    app: ride-service
+    app.kubernetes.io/name: ride-service
+    app.kubernetes.io/part-of: ridex
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: ride-service
+
+  template:
+    metadata:
+      labels:
+        app: ride-service
+        app.kubernetes.io/name: ride-service
+        app.kubernetes.io/part-of: ridex
+
+    spec:
+      containers:
+        - name: ride-service
+
+          image: ridex-ride-service:latest
+
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8003
+              protocol: TCP
+
+          env:
+            # ------------------------------------------------
+            # Database
+            # ------------------------------------------------
+
+            - name: DATABASE_URL
+              value: "postgresql://ridex:ridex_dev_password@postgres:5432/ridex"
+
+            # ------------------------------------------------
+            # Application
+            # ------------------------------------------------
+
+            - name: SERVICE_NAME
+              value: "ride-service"
+
+            - name: SERVICE_PORT
+              value: "8003"
+
+            - name: ENVIRONMENT
+              value: "development"
+
+            # ------------------------------------------------
+            # RideX Internal Services
+            # ------------------------------------------------
+
+            - name: USER_SERVICE_URL
+              value: "http://user-service:8001"
+
+            - name: DRIVER_SERVICE_URL
+              value: "http://driver-service:8002"
+
+            - name: MATCHING_SERVICE_URL
+              value: "http://matching-service:8004"
+
+            - name: PRICING_SERVICE_URL
+              value: "http://pricing-service:8005"
+
+            - name: PAYMENT_SERVICE_URL
+              value: "http://payment-service:8006"
+
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-service:8007"
+
+            - name: RATING_SAFETY_SERVICE_URL
+              value: "http://rating-safety-service:8008"
+
+          # --------------------------------------------------
+          # Readiness Probe
+          # --------------------------------------------------
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # --------------------------------------------------
+          # Liveness Probe
+          # --------------------------------------------------
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # --------------------------------------------------
+          # Resource Management
+          # --------------------------------------------------
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+---
+# ============================================================
+# Ride Service - Kubernetes Service
+# ============================================================
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: ride-service
+  namespace: ridex
+
+  labels:
+    app: ride-service
+    app.kubernetes.io/name: ride-service
+    app.kubernetes.io/part-of: ridex
+
+spec:
+  # Internal Kubernetes service
+  type: ClusterIP
+
+  selector:
+    app: ride-service
+
+  ports:
+    - name: http
+      protocol: TCP
+
+      port: 8003
+
+      targetPort: 8003
